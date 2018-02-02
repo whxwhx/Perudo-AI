@@ -1,12 +1,13 @@
 import random
+import os
 import copy
 dice = []
-history_len = 1
-C0 = 5
+history_len = 3
+C0 = 2
 
 class info:
 	def __init__(self, h, c, s, l, p):
-		self.history = copy.deepcopy(h)
+		self.history = copy.deepcopy(h) #to do
 		self.count = copy.deepcopy(c)
 		if p == 0: # if current player is player 1
 			self.count[0], self.count[1] = self.count[1], self.count[0]
@@ -35,7 +36,7 @@ class info:
 				#increment 1
 				for y in xrange(last_bid[1] + 1, tot + 1):
 					act.append((1, y))
-				#bid another x
+				#断言 another x
 				if not self.last:  
 					for x in xrange(2,7):
 						for y in xrange(last_bid[1] * 2 + 1, tot + 1):
@@ -56,6 +57,18 @@ class info:
 				for y in xrange(1,tot + 1):
 					act.append((x, y))
 		return act
+
+def newinfo(h, c, s, l):
+	InitialState = node(
+		[], [C0,C0], 
+		node.draw([C0,C0])
+	)
+	ans = InitialState.to_info()
+	ans.history = h
+	ans.count = c
+	ans.state = s
+	ans.last = l
+	return ans
 
 def compare(a, b):
 	y1 = 2 * a[1] if a[0] != 1 else 4 * a[1] + 1
@@ -116,7 +129,7 @@ class node:
 				#increment 1
 				for y in xrange(last_bid[1] + 1, tot + 1):
 					act.append((1, y))
-				#bid another x
+				#断言 another x
 				if not self.last:
 					for x in xrange(2,7):
 						for y in xrange(last_bid[1] * 2 + 1, tot + 1):
@@ -148,7 +161,7 @@ class node:
 
 			win = self.player if tot >= last_bid[1] else 1 - self.player
 			self.count[1 - win] = self.count[1 - win] - 1;
-			self.last = 1 if self.count[1 - win] == 1 else 0
+#			self.last = 1 if self.count[1 - win] == 1 else 0
 
 			self.history = []
 			if self.end():
@@ -201,7 +214,7 @@ def search():
 # bfs first to calculate the probability for two players to get to a node
 # then calculate the utility and the regret value
 
-strategy = dict() #info -> [(probility, regret, sumprobability)]
+strategy = dict() #info -> [[probility, regret, sumprobability]]
 def bfs(S, T):
 	q = [S]
 	l = 0
@@ -312,7 +325,8 @@ def train(iteration):
 			[], [C0,C0], 
 			node.draw([C0,C0])
 		)
-		print "iteration", t, "utility", bfs(InitialState, iteration)
+		if t % 200000 == 0:
+			print "iteration", t, "utility", bfs(InitialState, iteration)
 
 class player:
 	def action(Info):
@@ -320,7 +334,13 @@ class player:
 
 class random_player(player):
 	def action(self, Info):
-		return random.choice(Info.getAllaction())
+#		print "All feasiable action : " + str(Info.getAllaction())
+		print "Your turn : ",
+		try:
+			a = input()
+		except:
+			a = (-2, -2)
+		return a
 
 class cfg_player(player):
 	def action(self, Info):
@@ -333,38 +353,113 @@ class cfg_player(player):
 		for i in xrange(len(A)):
 			p = p - S[i]
 			if p <= 0:
+				print "Opponent move : " + str(A[i])
 				return A[i]
+		print "Opponent move : " + str(A[len(A) - 1])
 		return A[len(A) - 1]
 
-def fight(players, node):
+def fight(players, node, p):
 	while not node.end():
+		os.system('clear')
+		print "Dice you have : " + str(node.count[p]) + "  Dice rival have : " + str(node.count[1 - p])
+		print "Your dice : " + ( str(node.state[0:node.count[0]]) if p == 0 else str(node.state[node.count[0]: node.count[0] + node.count[1]]) )
 		inf = node.to_info()
 		act = players[1 - node.player].action(inf)
+		while not (act in node.getAllaction()):
+			act = players[1 - node.player].action(inf)
 #		print act
+		if (act == (-1, -1)):
+			print node.state
+		try:
+			input("Press Enter to continue...")
+		except:
+			pass
 		node.act(act)
 	return node.count[0] > 0
 
 
-train(200)
+
+def trans(s):
+	s = s.strip(' ')
+	s = s.strip('(')
+	s = s.strip(')')
+	if len(s) == 0:
+		return tuple()
+	else:
+		return tuple([int(x) for x in s.split(',')])
+def trans_tuple(s):
+	s = s.strip('[')
+	s = s.strip(']')
+	if len(s) == 0:
+		return []
+	else:
+		return [trans(x) for x in s.split('),')]
+
+def trans_list(s):
+	s = s.strip('[')
+	s = s.strip(']')
+	if len(s) == 0:
+		return []
+	else:
+		return [int(x) for x in s.split(',')]
+
+def read_model():
+	f = open("model.in","r")
+	l = int(f.readline())
+	for i in xrange(l):
+		if i % 100 == 0:
+			print str(i) + " of " + str(l)
+		s = f.readline()
+		t = s.split('|')
+		tmp = newinfo(trans_tuple(t[0]), trans_list(t[1]), trans_list(t[2]), int(t[3]))
+
+		L = []
+		length = int(f.readline())
+		for j in xrange(length):
+			L.append([0, 0, float(f.readline())])
+		strategy[tmp] = L
+	print "Reading finished"
+
+read_model()
+
+
+eps = 0.01
+#train(200000 * 60 * 60)
+#for key in strategy:
+#	value = strategy[key]
+#	norm = 0
+#	L = len(value)
+#	for p, r1, s in value:
+#		norm = norm + s
+#	cnt = 0
+#	for p, r1, s in value:
+#		value[cnt][2] = (1.0 / L) if norm == 0 else s / norm
+#		cnt = cnt + 1
+
 for key in strategy:
 	value = strategy[key]
 	norm = 0
-	L = len(value)
 	for p, r1, s in value:
-		norm = norm + s
+		if s > eps:
+			norm = norm + s
+	cnt = 0
 	for p, r1, s in value:
-		s = (1.0 / L) if norm == 0 else s / norm
+		value[cnt][2] = s / norm if s > eps else 0
+		cnt = cnt + 1
 
 #output strategy
-f = open("model.in", "w")
-f.write(str(len(strategy)) + '\n')
-for key in strategy:
-	f.write(key.tostring() + '\n')
-	f.write(str(len(value)) + '\n')
-	for p, r1, s in value:
-		f.write(str(s) + '\n')
+#f = open("model_2.in", "w")
+#f.write(str(len(strategy)) + '\n')
+#for key in strategy:
+#	value = strategy[key]
+#	f.write(key.tostring() + '\n')
+#	f.write(str(len(value)) + '\n')
+#	for p, r1, s in value:
+#		f.write(str(s) + '\n')
+#		assert s <= 1
+
 win = 0
-for i in xrange(10000):
+for i in xrange(100):
 	global dice
 	player1 = cfg_player()
 	player2 = random_player()
@@ -374,12 +469,16 @@ for i in xrange(10000):
 		node.draw([C0,C0])
 	)
 	if random.randint(1,2) == 1:
-		result = fight([player1, player2], InitialState)
+		result = fight([player2, player1], InitialState, 0)
 	else:
-		result = 1 - fight([player2, player1], InitialState)
-	if result == 1:
-		print "CFG win"
-	else:
-		print "RANDOM win"
+		result = 1 - fight([player1, player2], InitialState, 1)
 	win = win + result
-print "CFG win " + str(win) + " matches of all 10000 matches"
+	if result == 1:
+		print "You win " + str(win) + ":" + str(i + 1 - win)
+	else:
+		print "CFR win " + str(win) + ":" + str(i + 1 - win)
+	try:
+		input("Press Enter to continue...")
+	except:
+		pass
+print "CFG win " + str(win) + " matches of all 100 matches"
