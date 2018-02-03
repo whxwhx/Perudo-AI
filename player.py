@@ -1,3 +1,3 @@
 class player:
-	def action(Info):
+	def act(Info):
 		raise NotImplemented

@@ -4,7 +4,48 @@ import copy
 history_len = 3
 C0 = 2
 
-class info:
+class situation:
+	def __init__(self):
+		self.history = [] #to do
+		self.count = []
+		self.state = []
+		self.last = 0
+
+	def getAllaction(self):
+		act = []
+		tot = self.count[0] + self.count[1]
+		l = len(self.history)
+		if l: # if it's not the very first move
+			last_bid = self.history[l - 1]
+			act = [(-1, -1)] #call
+
+			if last_bid[0] == 1:
+				#increment 1
+				for y in range(last_bid[1] + 1, tot + 1):
+					act.append((1, y))
+				#断言 another x
+				if not self.last:  
+					for x in range(2,7):
+						for y in range(last_bid[1] * 2 + 1, tot + 1):
+							act.append((x, y))
+			else:
+				if not self.last:
+					#increment x
+					for x in range(last_bid[0] + 1, 7):
+						act.append((x, last_bid[1]))
+					#attach 1
+					for y in range((last_bid[1] + 1) // 2, tot + 1):
+						act.append((1, y))
+				#increment y
+				for y in range(last_bid[1] + 1, tot + 1):
+					act.append((last_bid[0], y))
+		else:
+			for x in range(1,7):
+				for y in range(1,tot + 1):
+					act.append((x, y))
+		return act
+
+class info(situation):
 	def __init__(self, h, c, s, l, p):
 		self.history = copy.deepcopy(h) #to do
 		self.count = copy.deepcopy(c)
@@ -23,41 +64,12 @@ class info:
 	def __hash__(self):
 		return self.tostring().__hash__()
 
-	def getAllaction(self):
-		act = []
-		tot = self.count[0] + self.count[1]
-		l = len(self.history)
-		if l: # if it's not the very first move
-			last_bid = self.history[l - 1]
-			act = [(-1, -1)] #call
-
-			if last_bid[0] == 1:
-				#increment 1
-				for y in xrange(last_bid[1] + 1, tot + 1):
-					act.append((1, y))
-				#断言 another x
-				if not self.last:  
-					for x in xrange(2,7):
-						for y in xrange(last_bid[1] * 2 + 1, tot + 1):
-							act.append((x, y))
-			else:
-				if not self.last:
-					#increment x
-					for x in xrange(last_bid[0] + 1, 7):
-						act.append((x, last_bid[1]))
-					#attach 1
-					for y in xrange((last_bid[1] + 1) / 2, tot + 1):
-						act.append((1, y))
-				#increment y
-				for y in xrange(last_bid[1] + 1, tot + 1):
-					act.append((last_bid[0], y))
-		else:
-			for x in xrange(1,7):
-				for y in xrange(1,tot + 1):
-					act.append((x, y))
-		return act
-
-class node:
+def compare(a, b):
+	y1 = 2 * a[1] if a[0] != 1 else 4 * a[1] + 1
+	y2 = 2 * b[1] if b[0] != 1 else 4 * b[1] + 1
+	return y1 < y2 or (y1 == y2 and a[0] < b[0])
+	
+class node(situation):
 	def __init__(self, h, c, s):
 		#[(a,b), (a,b), (a,b)]
 		self.history = h
@@ -71,12 +83,6 @@ class node:
 	def to_info(self):
 		a = info(self.history, self.count, self.state, self.last, self.player)
 		return a
-
-	@staticmethod
-	def compare(a, b):
-		y1 = 2 * a[1] if a[0] != 1 else 4 * a[1] + 1
-		y2 = 2 * b[1] if b[0] != 1 else 4 * b[1] + 1
-		return y1 < y2 or (y1 == y2 and a[0] < b[0])
 
 	def __lt__(self, another):
 		tot = self.count[0] + self.count[1]
@@ -105,40 +111,6 @@ class node:
 
 	def __hash__(self):
 		return self.tostring().__hash__()
-
-	def getAllaction(self):
-		act = []
-		tot = self.count[0] + self.count[1]
-		l = len(self.history)
-		if l:
-			last_bid = self.history[l - 1]
-			act = [(-1, -1)]
-
-			if last_bid[0] == 1:
-				#increment 1
-				for y in xrange(last_bid[1] + 1, tot + 1):
-					act.append((1, y))
-				#断言 another x
-				if not self.last:
-					for x in xrange(2,7):
-						for y in xrange(last_bid[1] * 2 + 1, tot + 1):
-							act.append((x, y))
-			else:
-				if not self.last:
-					#increment x
-					for x in xrange(last_bid[0] + 1, 7):
-						act.append((x, last_bid[1]))
-					#attach 1
-					for y in xrange((last_bid[1] + 1) / 2, tot + 1):
-						act.append((1, y))
-				#increment y
-				for y in xrange(last_bid[1] + 1, tot + 1):
-					act.append((last_bid[0], y))
-		else:
-			for x in xrange(1,7):
-				for y in xrange(1,tot + 1):
-					act.append((x, y))
-		return act
 
 	def act(self, action, dice):
 		l = len(self.history)
@@ -171,7 +143,7 @@ class node:
 		a = x[0]
 		b = x[1]
 		tot = a + b
-		pre = (C0 * 2 + (tot + 1)) * (C0 * 2 - tot) / 2
+		pre = (C0 * 2 + (tot + 1)) * (C0 * 2 - tot) // 2
 		t1 = dice[pre: pre + a]
 		t2 = dice[pre + a: pre + a + b]
 		t1.sort()
