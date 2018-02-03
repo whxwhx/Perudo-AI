@@ -16,7 +16,7 @@ def fight(players, node, dice, p):
 		inf = node.to_info()
 		act = players[1 - node.player].action(inf)
 		if (1 - node.player != p):
-			print("Opponent move : " + act)
+			print("Opponent move : " + str(act))
 		while not (act in node.getAllaction()):
 			act = players[1 - node.player].action(inf)
 		if (act == (-1, -1)):

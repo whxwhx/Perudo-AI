@@ -3,8 +3,8 @@ import copy
 from game import info, node
 from player import  player
 C0 = 2
-eps_adj = 0.001
-
+eps_adj = 0.005
+eps_search = -1
 def newinfo(h, c, s, l):
 	InitialState = node(
 		[], [C0,C0], 
@@ -63,10 +63,13 @@ class cfr_player():
 	def train(self, iteration):
 		q = []
 		prob = []
+		child = []
+		st = []
 		pos = dict() #node -> position
 
 		def bfs_all_states(S):
 			nonlocal q
+			nonlocal st
 			q = [S]
 			l = 0
 			r = 1
@@ -74,46 +77,69 @@ class cfr_player():
 			searched_state.add(S)
 			while l < r:
 				state = q[l]
+				inf = state.to_info()
+				L = state.getAllaction()
+				length = len(L)
+				if self.strategy.get(inf) == None:
+					self.strategy[inf] = [[1.0 / length, .0, .0] for x in range(length)]
+				S = self.strategy[inf]
 				if not state.end():
-					for a in state.getAllaction():
-						NewState = copy.deepcopy(state)
-						NewState.act(a, dice)
-						if not (NewState in searched_state):
-							q.append(NewState)
-							searched_state.add(NewState)
-							r = r + 1
+					cnt = 0
+					for a in L:
+						if S[cnt][0] > eps_search:
+							NewState = copy.deepcopy(state)
+							NewState.act(a, dice)
+							if not (NewState in searched_state):
+								q.append(NewState)
+								searched_state.add(NewState)
+								r = r + 1
+						cnt = cnt + 1
 				l = l + 1
 			q.sort() 
+			st = []
+			for i in range(r):
+				if q[i].end():
+					st.append([])
+				else:
+					st.append(self.strategy[q[i].to_info()])
 
 		def calculate_probability():
 			nonlocal q
 			nonlocal pos
 			nonlocal prob
+			nonlocal child
 			n = len(q)
+			pos = dict()
+			prob = [[0.0, 0.0] for x in range(n)]
+			child = []
 			for i in range(n):
 				pos[q[i]] = i
-			prob = [[0.0, 0.0] for x in range(n)]
 			prob[0] = [1.0, 1.0]
 			for i in range(n):
 				state = q[i]
 				if state.end():
+					child.append([])
 					continue
 
 				L = state.getAllaction()
 				length = len(L)
 				inf = state.to_info()
-				if self.strategy.get(inf) == None:
-					self.strategy[inf] = [[1.0 / length, .0, .0] for x in range(length)]
-				S = self.strategy[inf]
+				S = st[i]
 
 				cnt = 0
+				tmp = []
 				for a in L:
 					NewState = copy.deepcopy(state)
 					NewState.act(a, dice)
+					if pos.get(NewState) == None:
+						tmp.append(0)
+						continue
 					t = pos[NewState]
+					tmp.append(t)
 					prob[t][0] = prob[t][0] + prob[i][0] * (S[cnt][0] if NewState.player == 0 else 1)
 					prob[t][1] = prob[t][1] + prob[i][1] * (S[cnt][0] if NewState.player == 1 else 1)
 					cnt = cnt + 1
+				child.append(tmp)
 
 		def update_regret():
 			nonlocal q
@@ -132,30 +158,28 @@ class cfr_player():
 					length = len(L)
 
 					inf = state.to_info()
-					S = self.strategy[inf]
+					S = st[i]
 
 					cnt = 0
-					tmp = []
+					Sum = 0
 					for a in L:
-						NewState = copy.deepcopy(state)
-						NewState.act(a, dice)
-						t = pos[NewState]
-						tmp.append(t)
-						utility[i] = utility[i] - utility[t] * S[cnt][0] #utility[t] and i have different player
+						t = child[i][cnt]
+						if (t != 0):
+							Sum = Sum + S[cnt][0]
+							utility[i] = utility[i] - utility[t] * S[cnt][0] #utility[t] and i have different player
 						cnt = cnt + 1
-
 					#update regret
 					tot = 0.0
 					for j in range(length):
-						t = tmp[j]
-						S[j][1] = S[j][1] + (-utility[t] - utility[i]) * prob[i][state.player] #rival
+						t = child[i][j]
+						if (t != 0):
+							S[j][1] = S[j][1] + (-utility[t] - utility[i]) * prob[i][state.player] #rival
 						tot = tot + (S[j][1] if S[j][1] > 0 else 0)
 
 					#get new strategy
 					for j in range(length):
-						S[j][0] = (1.0 / length) if tot == 0 else (S[j][1] / tot if S[j][1] > 0 else 0)
-						if T > 100 * 200000:
-							S[j][2] = S[j][2] + S[j][0] * prob[i][1 - state.player] #self
+						S[j][0] = (1.0 / length) if tot <= 0 else (S[j][1] / tot if S[j][1] > 0 else 0)
+						S[j][2] = S[j][2] + S[j][0] * prob[i][1 - state.player] #self
 			return utility[0]
 
 		tot = .0
@@ -171,8 +195,9 @@ class cfr_player():
 			tot = tot + tmp
 			if T % 10 == 0:
 				print(str(T) + " iterations trained, utility : " + str(tot / 10.0))
-			if T % (600) == 0:
-				self.output("model_tmp" + str((T / (600 * 200000)) % 2) + ".in")
+				tot = 0
+			if T % 36 == 0:
+				self.output("/output/M" + str(T // 3600) + ".in")
 		self.normalize()
 
 	def load(self, fn):
@@ -206,7 +231,7 @@ class cfr_player():
 			length = int(f.readline())
 			for j in range(length):
 				p = float(f.readline())
-				L.append([p, p, p])
+				L.append([p, 0, 0])
 			self.strategy[tmp] = L
 		print("load complete")
 
@@ -229,7 +254,7 @@ class cfr_player():
 				norm = norm + s
 			cnt = 0
 			for p, r1, s in value:
-				value[cnt][2] = (1.0 / L) if norm == 0 else s / norm
+				value[cnt][2] = (1.0 / L) if norm <= 0 else s / norm
 				cnt = cnt + 1
 
 	def epsilon_adjust(self):

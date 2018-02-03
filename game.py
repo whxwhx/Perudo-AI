@@ -23,7 +23,7 @@ class situation:
 				#increment 1
 				for y in range(last_bid[1] + 1, tot + 1):
 					act.append((1, y))
-				#断言 another x
+				#bid another x
 				if not self.last:  
 					for x in range(2,7):
 						for y in range(last_bid[1] * 2 + 1, tot + 1):
@@ -44,7 +44,6 @@ class situation:
 				for y in range(1,tot + 1):
 					act.append((x, y))
 		return act
-
 class info(situation):
 	def __init__(self, h, c, s, l, p):
 		self.history = copy.deepcopy(h) #to do
