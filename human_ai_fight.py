@@ -5,7 +5,9 @@ from cfr import cfr_player
 from human import human_player
 cfr = cfr_player()
 human = human_player()
-cfr.load("model.in")
+cfr.load("M41.in")
+cfr.normalize()
+cfr.epsilon_adjust()
 C0 = 2
 
 def fight(players, node, dice, p):

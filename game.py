@@ -120,7 +120,7 @@ class node(situation):
 				tot = tot + self.state.count(1)
 
 			win = self.player if tot >= last_bid[1] else 1 - self.player
-			self.count[1 - win] = self.count[1 - win] - 1;
+			self.count[1 - win] = self.count[1 - win] - 1
 #			self.last = 1 if self.count[1 - win] == 1 else 0
 
 			self.history = []

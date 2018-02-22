@@ -185,9 +185,11 @@ class cfr_player():
 		tot = .0
 		for T in range(iteration):
 			dice = [random.randint(1, 6) for x in range(12)]
+			x1 = random.randint(1, C0)
+			x2 = random.randint(1, C0)
 			InitialState = node(
-				[], [C0,C0], 
-				node.draw([C0,C0], dice)
+				[], [x1,x2], 
+				node.draw([x1,x2], dice)
 			)
 			bfs_all_states(InitialState)
 			calculate_probability()
@@ -196,7 +198,7 @@ class cfr_player():
 			if T % 10 == 0:
 				print(str(T) + " iterations trained, utility : " + str(tot / 10.0))
 				tot = 0
-			if T % 36 == 0:
+			if T % 360 == 0:
 				self.output("/output/M" + str(T // 3600) + ".in")
 		self.normalize()
 
